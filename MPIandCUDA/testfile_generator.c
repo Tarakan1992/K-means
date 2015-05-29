@@ -28,25 +28,15 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
-	srand(time(NULL));
-
 	float items[items_count * params_count];
 
-	FILE* file = fopen(filename, "w");
-
-    for(int i = 0; i < itemsCount; i++)
+    for(int i = 0; i < items_count; i++)
     {
-        fprintf(file, "%d ", clustersIds[i]);
-
-        for(int j = 0; j < paramsCount; j++)
+        for(int j = 0; j < params_count; j++)
         {
-            fprintf(file, "%f ", items[i * paramsCount + j]);
+            items[i * params_count + j] = i * 1.0;
         }
-
-        fprintf(file,"\n");
     }
-
-    fclose(file);
 
 
     FILE* file = fopen(file_name, "wb");
