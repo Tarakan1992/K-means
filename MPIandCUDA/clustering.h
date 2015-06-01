@@ -58,7 +58,6 @@ int centersIsEqual(float* centers1, float* centers2, int clustersCount, int para
     for(int i = 0; i < clustersCount * paramsCount; i++)
     {
         if(abs(centers1[i] - centers2[i]) > 0.0001) 
-        //if(centers1[i] != centers2[i]) 
         {
             return 0;
         }
@@ -85,14 +84,14 @@ int endOfClustering(float* centers, float* newCenters, int* itemsPerClusters,
 
             MPI_Recv((void*)tItemsPerClusters, clustersCount, 
                  MPI_INT, source, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        }
-
-        for(int i = 0; i < clustersCount; i++)
-        {
-            itemsPerClusters[i] += tItemsPerClusters[i];
-            for(int j = 0; j < paramsCount; j++)
+        
+            for(int i = 0; i < clustersCount; i++)
             {
-                newCenters[i * paramsCount + j] = tNewCenters[i * paramsCount + j];
+                itemsPerClusters[i] += tItemsPerClusters[i];
+                for(int j = 0; j < paramsCount; j++)
+                {
+                    newCenters[i * paramsCount + j] += tNewCenters[i * paramsCount + j];
+                }
             }
         }
 
@@ -113,15 +112,17 @@ int endOfClustering(float* centers, float* newCenters, int* itemsPerClusters,
 
         EOC = centersIsEqual(centers, newCenters, clustersCount, paramsCount);
 
-        //printf("EOC: %d\n", EOC);
-
         memcpy(centers, newCenters, clustersCount * paramsCount * sizeof(float));
 
         for(int destination = 1; destination < size; destination++)
         {
             MPI_Send((void*)&EOC, 1, MPI_INT, destination, 0, MPI_COMM_WORLD);
-            MPI_Send((void*)centers, clustersCount * paramsCount, 
-                MPI_FLOAT, destination, 0, MPI_COMM_WORLD);
+
+            if(!EOC)
+            {
+                MPI_Send((void*)centers, clustersCount * paramsCount, MPI_FLOAT, 
+                    destination, 0, MPI_COMM_WORLD);
+            }
         }
     }
     else
@@ -130,7 +131,11 @@ int endOfClustering(float* centers, float* newCenters, int* itemsPerClusters,
         MPI_Send((void*)itemsPerClusters, clustersCount, MPI_INT, 0, 0, MPI_COMM_WORLD);
 
         MPI_Recv((void*)&EOC, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Recv((void*)centers, clustersCount * paramsCount, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        
+        if(!EOC)
+        {
+            MPI_Recv((void*)centers, clustersCount * paramsCount, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        }
     }
 
     return EOC;
@@ -149,16 +154,8 @@ void kMeans(char* filename, int itemsCount, int offset, int clustersCount, int p
             int ierr;
             int EOC;
             int deviceCount;
-            double timing, timing_io, clustreing_timing;
             cudaDeviceProp dp;
             
-    
-
-    timing_io = MPI_Wtime();
-
-    //debug
-    printf("I am process - %d, items: %d, offset: %d\n", rank, itemsCount, offset);
-
     //allocation
     items = (float*)malloc(itemsCount * paramsCount * sizeof(float));
     centers = (float*)malloc(clustersCount * paramsCount * sizeof(float));
@@ -169,7 +166,6 @@ void kMeans(char* filename, int itemsCount, int offset, int clustersCount, int p
 
     //get cuda device count
     cudaGetDeviceCount(&deviceCount);
-    printf("Device count: %d\n", deviceCount);
 
     //selection for each device
     selection* selections = (selection*)malloc(deviceCount * sizeof(selection));
@@ -249,8 +245,6 @@ void kMeans(char* filename, int itemsCount, int offset, int clustersCount, int p
 
     initCentersOfClusters(centers, clustersCount, paramsCount);
 
-    // for(int c = 0; c < 5; c++)
-    // {
     do
     {
         for(int i = 0; i < deviceCount; i++)
@@ -328,7 +322,38 @@ void kMeans(char* filename, int itemsCount, int offset, int clustersCount, int p
         cudaMemcpyAsync(selections[i].clustersIds, selections[i].d_clustersIds,
                 selections[i].itemsCount * sizeof(int), cudaMemcpyDeviceToHost, selections[i].stream);
     }
-    
+
+    // if(rank == 0)
+    // {
+    //     for(int i = 0; i < itemsCount; i++)
+    //     {
+    //         for(int j = 0; j < paramsCount; j++)
+    //         {
+    //             printf("%f ", items[i * paramsCount + j]);
+    //         }
+    //         printf("\n");
+    //     }
+
+    //     printf("\n");
+
+    //     for(int i = 0; i < itemsCount; i++)
+    //     {
+    //         printf("%d ", clustersIds[i]);
+    //     }
+
+    //     printf("\ncenters: \n");
+
+    //     for(int i = 0; i < clustersCount; i++)
+    //     {
+    //         for(int j = 0; j < paramsCount; j++)
+    //         {
+    //             printf("%f ", centers[i * paramsCount + j]);
+    //         }
+
+    //         printf("\n");
+    //     }
+    // } 
+
 
     //open file
     ierr = MPI_File_open(MPI_COMM_WORLD, "output.bin", MPI_MODE_WRONLY | MPI_MODE_CREATE, MPI_INFO_NULL, &output);
@@ -343,68 +368,23 @@ void kMeans(char* filename, int itemsCount, int offset, int clustersCount, int p
         exit(3);
     }
 
+    //printf("rank: %d offset: %d itemsCount: %d\n", rank, offset * (sizeof(int) + paramsCount * sizeof(float)), itemsCount);
+
     writeFile(output, items, offset * (sizeof(int) + paramsCount * sizeof(float)), 
         itemsCount, paramsCount, clustersIds);
+
+    for(int i = 0; i < deviceCount; i++)
+    {
+        cudaSetDevice(i);
+        cudaFree(selections[i].d_items);
+        cudaFree(selections[i].d_clustersIds);
+        cudaFree(selections[i].d_centers);
+        cudaFree(selections[i].d_newCenters);
+        cudaFree(selections[i].d_itemsPerClusters);
+    }
 
     MPI_File_close(&output);
 
 }
 
 #endif // __CLUSTERING_H
-
-
-// if(rank == 0)
-// {
-//     for(int i = 0; i < selections[0].itemsCount; i++)
-//     {
-//         for(int j = 0; j < paramsCount; j++)
-//         {
-//             printf("%f ", selections[0].items[i * paramsCount + j]);
-//         }
-//         printf("\n");
-//     }
-
-//     printf("\n");
-
-//     for(int i = 0; i < itemsCount; i++)
-//     {
-//         printf("%d ", selections[0].clustersIds[i]);
-//     }
-
-//     printf("\nNew centers: \n");
-
-//     for(int i = 0; i < clustersCount; i++)
-//     {
-//         printf("%d    ", itemsPerClusters[i]);
-//         for(int j = 0; j < paramsCount; j++)
-//         {
-//             printf("%f ", newCenters[i * paramsCount + j]);
-//         }
-
-//         printf("\n");
-//     }
-
-// }
-
-// if(rank == 2)
-// {
-//     printf("grid size: %d\n", selections[i].gridSize);
-//     printf("block size: %d\n", selections[i].blockSize);
-// }
-
-// if(rank == 0)
-// {
-//     printf("centers:\n");
-//     for(int i = 0; i < clustersCount; i++)
-//     {
-//         printf("%d. ", i);
-//         for(int j = 0; j < paramsCount; j++)
-//         {
-//             printf("%f ", centers[i * paramsCount + j]);
-//         }
-//         printf("\n");
-//     }
-
-//     printf("\n\n");
-
-// }

@@ -9,7 +9,7 @@
 int main(int argc, char** argv)
 {
 	int params_count;
-	int items_count;
+	unsigned int items_count;
 	char* file_name;
 
 	if(argc < 4)
@@ -28,25 +28,21 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
-	srand(time(NULL));
+	srand(10);
 
-	float items[items_count * params_count];
+	printf("ALL OK\n");
 
-	FILE* file = fopen(filename, "w");
+	float* items = (float*)malloc(items_count * params_count * sizeof(float));
 
-    for(int i = 0; i < itemsCount; i++)
+	printf("ALL OK\n");
+
+    for(int i = 0; i < items_count; i++)
     {
-        fprintf(file, "%d ", clustersIds[i]);
-
-        for(int j = 0; j < paramsCount; j++)
+        for(int j = 0; j < params_count; j++)
         {
-            fprintf(file, "%f ", items[i * paramsCount + j]);
+            items[i * params_count + j] = (float)((rand() % 8000) * 0.01);
         }
-
-        fprintf(file,"\n");
     }
-
-    fclose(file);
 
 
     FILE* file = fopen(file_name, "wb");

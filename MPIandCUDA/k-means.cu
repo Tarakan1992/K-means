@@ -14,14 +14,16 @@ int main(int argc, char** argv)
 	int rank, size;
 	int itemsCount, paramsCount, clustersCount;
 	int itemsPerProc, offset;
-	int ierr;
 	char* filename;
+	double start, end;
 
     MPI_Init(&argc, &argv);
 
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
+
+    start = MPI_Wtime();
     //read cl parameters
     if(argc < 5)
     {
@@ -56,16 +58,23 @@ int main(int argc, char** argv)
     offset = itemsPerProc * rank;
 
     //last process correction
-    if(rank == size - 1)
+    if(size > 2 && rank == size - 1)
     {
         itemsPerProc = itemsPerProc - 1;
     }
 
-
     kMeans(filename, itemsPerProc, offset, clustersCount, paramsCount, size, rank);
 
+    end = MPI_Wtime();
 
+    //printf("rank: %d\n", rank);
+    if(rank == 0);
+    {
+    	printf("time: %.8lf \n", end - start);	
+    }
+    
     MPI_Finalize();
+
     return 0;
 }
 
