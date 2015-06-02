@@ -76,18 +76,26 @@ __global__ void newCentersKernel(
 	int paramsCount
 	)
 {
+	
+	extern __shared__ float center[];
+
 	int clusterId = blockIdx.x;
+	int paramId = threadIdx.x;
+
+	center[paramId] = 0.0;
+	int count = 0;
+
+	__syncthreads();
 
 	for(int i = 0; i < itemsCount; i++)
 	{
 		if(clusterId == clustersIds[i])
 		{
-			for(int j = 0; j < paramsCount; j++)
-			{
-				newCenters[blockIdx.x * paramsCount + j] += items[i * paramsCount + j];
-			}
-
-			itemsPerClusters[clusterId] += 1;
+			center[paramId] += items[i * paramsCount + paramId];
+			count += 1;
 		}
 	}
+
+	newCenters[clusterId * paramsCount + paramId] = center[paramId];
+	itemsPerClusters[clusterId] = count;
 }

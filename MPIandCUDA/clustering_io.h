@@ -24,4 +24,17 @@ void writeFile(MPI_File file, float* items, int offset, int itemsCount, int para
     }
 }
 
+void testSave(double time, int itemsCount, int paramsCount, int clustersCount, int size)
+{
+    FILE* file = fopen("test_result.txt", "a");
+
+    fprintf(file, "%d ", itemsCount);
+    fprintf(file, "%d ", paramsCount);
+    fprintf(file, "%d ", clustersCount);
+    fprintf(file, "%d ", size);
+    fprintf(file, "%.8lf\n", time);
+
+    fclose(file);
+}
+
 #endif // __CLUSTERING_IO_H

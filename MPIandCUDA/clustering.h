@@ -39,7 +39,6 @@ typedef struct
 
 } selection;
 
-
 void initCentersOfClusters(float* centers, int clustersCount, int paramsCount)
 {
     srand(RAND_INIT);
@@ -99,14 +98,7 @@ int endOfClustering(float* centers, float* newCenters, int* itemsPerClusters,
         {
             for(int j = 0; j < paramsCount; j++)
             {
-                if(itemsPerClusters[i] != 0)
-                {
-                    newCenters[i * paramsCount + j] /= itemsPerClusters[i];    
-                }
-                else
-                {
-                    newCenters[i * paramsCount + j] = centers[i * paramsCount + j];
-                }
+                newCenters[i * paramsCount + j] /= itemsPerClusters[i];  
             }
         }
 
@@ -240,13 +232,47 @@ void kMeans(char* filename, int itemsCount, int offset, int clustersCount, int p
             cudaMemcpyHostToDevice, selections[i].stream);
     }
 
-    
     MPI_File_close(&input);
 
     initCentersOfClusters(centers, clustersCount, paramsCount);
 
+    // for(int i = 0; i < itemsCount; i++)
+    // {
+    //     for(int j = 0; j < paramsCount; j++)
+    //     {
+    //         printf("%f ", items[i * paramsCount + j]);
+    //     }
+    //     printf("\n");
+    // }
+
+    // printf("\n");
+
+    // for(int i = 0; i < clustersCount; i++)
+    // {
+    //     for(int j = 0; j < paramsCount; j++)
+    //     {
+    //         printf("%f ", centers[i * paramsCount + j]);
+    //     }
+
+    //     printf("\n");
+    // }
+
+    // printf("\n");
+
+    //for(int m = 0; m < 4; m++)
     do
     {
+
+        // for(int i = 0; i < clustersCount; i++)
+        // {
+        //     for(int j = 0; j < paramsCount; j++)
+        //     {
+        //         printf("%f ", centers[i * paramsCount + j]);
+        //     }
+
+        //     printf("\n");
+        // }
+
         for(int i = 0; i < deviceCount; i++)
         {
 
@@ -310,10 +336,25 @@ void kMeans(char* filename, int itemsCount, int offset, int clustersCount, int p
             }
         }
 
+        // for(int i = 0; i < clustersCount; i++)
+        // {
+        //     printf("%d ", itemsPerClusters[i]);
+        //     for(int j = 0; j < paramsCount; j++)
+        //     {
+        //         printf("%f ", newCenters[i * paramsCount + j]);
+        //     }
+
+        //     printf("\n");
+        // }
+
+        // printf("\n");
+
         EOC = endOfClustering(centers, newCenters, itemsPerClusters, 
             clustersCount, paramsCount, size, rank);
 
-    }while(!EOC);
+    }
+    while(!EOC);
+    //while(0);
 
 
     for(int i = 0; i < deviceCount; i++)

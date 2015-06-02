@@ -70,7 +70,7 @@ int main(int argc, char** argv)
     //printf("rank: %d\n", rank);
     if(rank == 0);
     {
-    	printf("time: %.8lf \n", end - start);	
+    	testSave(end - start, itemsCount, paramsCount, clustersCount, size);
     }
     
     MPI_Finalize();
